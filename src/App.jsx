@@ -17,6 +17,7 @@ function requestGhlSso() {
     const timeout = setTimeout(() => reject(new Error('SSO timeout')), 5000);
 
     function handler(event) {
+      console.log('SSO: received message', event.origin, event.data);
       if (event.data && event.data.message === 'REQUEST_USER_DATA_RESPONSE') {
         clearTimeout(timeout);
         window.removeEventListener('message', handler);
@@ -25,6 +26,7 @@ function requestGhlSso() {
     }
 
     window.addEventListener('message', handler);
+    console.log('SSO: sending REQUEST_USER_DATA to parent');
 
     // Ask GHL parent for session data
     window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
