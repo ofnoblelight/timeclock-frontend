@@ -17,17 +17,17 @@ function requestGhlSso() {
     const timeout = setTimeout(() => reject(new Error('SSO timeout')), 5000);
 
     function handler(event) {
-      if (event.data && event.data.name === 'REQUEST_USER_DATA_RESPONSE') {
+      if (event.data && event.data.message === 'REQUEST_USER_DATA_RESPONSE') {
         clearTimeout(timeout);
         window.removeEventListener('message', handler);
-        resolve(event.data.data);
+        resolve(event.data.payload);
       }
     }
 
     window.addEventListener('message', handler);
 
     // Ask GHL parent for session data
-    window.parent.postMessage({ name: 'REQUEST_USER_DATA' }, '*');
+    window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
   });
 }
 
