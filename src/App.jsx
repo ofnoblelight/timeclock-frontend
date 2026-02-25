@@ -179,7 +179,7 @@ function AppShell({ user }) {
       <div style={{ flex: 1, paddingBottom: 68 }}>
         {tab === 'clock' && <ClockScreen user={user} />}
         {tab === 'hours' && <HoursScreen />}
-        {tab === 'admin' && isAdmin && <AdminScreen onSettings={() => setShowSettings(true)} />}
+        {tab === 'admin' && isAdmin && <AdminScreen user={user} onSettings={() => setShowSettings(true)} />}
       </div>
 
       <Nav tab={tab} setTab={setTab} isAdmin={isAdmin} />

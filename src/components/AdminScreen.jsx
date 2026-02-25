@@ -21,7 +21,7 @@ function toLocalDatetime(iso) {
   return local.toISOString().slice(0, 16);
 }
 
-export default function AdminScreen({ onSettings }) {
+export default function AdminScreen({ user: currentUser, onSettings }) {
   const { c } = useTheme();
   const [sub, setSub] = useState('team');
   const [entries, setEntries] = useState([]);
@@ -244,7 +244,7 @@ export default function AdminScreen({ onSettings }) {
                       <option value="admin">Admin</option>
                     </select>
                     <div
-                      onClick={() => handleToggleActive(u.id, true)}
+                      onClick={() => u.id === currentUser?.id ? alert("You cannot deactivate yourself") : handleToggleActive(u.id, true)}
                       style={{ color: c.red, fontSize: 11, cursor: 'pointer', opacity: 0.6, padding: '5px 8px', borderRadius: 6, background: c.surface2, fontWeight: 500 }}
                     >
                       Deactivate
