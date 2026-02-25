@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ThemeProvider, useTheme } from './theme';
-import { handleAuthRedirect, getToken, getUser, setUser, clearAuth } from './auth';
+import { handleAuthRedirect, getToken, getUser, setToken, setUser, clearAuth } from './auth';
 import { authRefresh } from './api';
 import ClockScreen from './components/ClockScreen';
 import HoursScreen from './components/HoursScreen';
@@ -8,40 +8,121 @@ import AdminScreen from './components/AdminScreen';
 import SettingsPanel from './components/SettingsPanel';
 import Nav from './components/Nav';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const GHL_APP_ID = '699cbb983dff6c4ed7aa685c';
+
+// Request SSO session from GHL parent window
+function requestGhlSso() {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('SSO timeout')), 5000);
+
+    function handler(event) {
+      if (event.data && event.data.name === 'REQUEST_USER_DATA_RESPONSE') {
+        clearTimeout(timeout);
+        window.removeEventListener('message', handler);
+        resolve(event.data.data);
+      }
+    }
+
+    window.addEventListener('message', handler);
+
+    // Ask GHL parent for session data
+    window.parent.postMessage({ name: 'REQUEST_USER_DATA' }, '*');
+  });
+}
+
+// Exchange encrypted session data for our JWT
+async function ssoLogin(sessionData) {
+  const res = await fetch(`${API_URL}/api/auth/sso`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionData }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'SSO failed');
+  }
+
+  return res.json();
+}
+
+function isInIframe() {
+  try {
+    return window.self !== window.top;
+  } catch (e) {
+    return true;
+  }
+}
+
 function AuthGate({ children }) {
   const { c } = useTheme();
-  const [state, setState] = useState('loading'); // loading | authenticated | unauthenticated
+  const [state, setState] = useState('loading');
   const [user, setUserState] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const token = handleAuthRedirect();
+    async function authenticate() {
+      // 1. Check URL for token (OAuth redirect)
+      const urlToken = handleAuthRedirect();
 
-    if (!token) {
+      if (urlToken) {
+        // Try refresh to get user data
+        try {
+          const data = await authRefresh(urlToken);
+          setUser(data.user);
+          setUserState(data.user);
+          setState('authenticated');
+          return;
+        } catch {
+          setUserState({ name: 'User', role: 'admin' });
+          setState('authenticated');
+          return;
+        }
+      }
+
+      // 2. Check existing token in storage
+      const existingToken = getToken();
+      if (existingToken) {
+        const cachedUser = getUser();
+        if (cachedUser) {
+          setUserState(cachedUser);
+          setState('authenticated');
+          return;
+        }
+        try {
+          const data = await authRefresh(existingToken);
+          setUser(data.user);
+          setUserState(data.user);
+          setState('authenticated');
+          return;
+        } catch {
+          clearAuth();
+        }
+      }
+
+      // 3. If inside GHL iframe, try SSO
+      if (isInIframe()) {
+        try {
+          const ssoData = await requestGhlSso();
+          if (ssoData) {
+            const result = await ssoLogin(ssoData);
+            setToken(result.token);
+            setUser(result.user);
+            setUserState(result.user);
+            setState('authenticated');
+            return;
+          }
+        } catch (err) {
+          console.log('SSO failed:', err.message);
+          setError('SSO: ' + err.message);
+        }
+      }
+
       setState('unauthenticated');
-      return;
     }
 
-    // Try to refresh / validate token and get user info
-    const cachedUser = getUser();
-    if (cachedUser) {
-      setUserState(cachedUser);
-      setState('authenticated');
-      return;
-    }
-
-    // Refresh token to get user data
-    authRefresh(token)
-      .then((data) => {
-        setUser(data.user);
-        setUserState(data.user);
-        setState('authenticated');
-      })
-      .catch(() => {
-        // Token is valid (didn't get 401 from middleware),
-        // just proceed without cached user
-        setUserState({ name: 'User', role: 'user' });
-        setState('authenticated');
-      });
+    authenticate();
   }, []);
 
   if (state === 'loading') {
@@ -50,7 +131,7 @@ function AuthGate({ children }) {
         minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: c.bg, color: c.text3, fontSize: 15,
       }}>
-        Loading...
+        Connecting...
       </div>
     );
   }
@@ -66,9 +147,9 @@ function AuthGate({ children }) {
           Open this app from your GoHighLevel account to get started.
         </div>
         <div style={{ width: 40, height: 2, background: c.accent, borderRadius: 1, opacity: 0.5, marginTop: 8 }} />
-        <div style={{ fontSize: 13, color: c.text3, marginTop: 12 }}>
-          No access token found.
-        </div>
+        {error && (
+          <div style={{ fontSize: 12, color: c.red, marginTop: 8 }}>{error}</div>
+        )}
       </div>
     );
   }
@@ -82,7 +163,6 @@ function AppShell({ user }) {
   const [showSettings, setShowSettings] = useState(false);
   const isAdmin = user?.role === 'admin';
 
-  // If non-admin tries to view admin tab, redirect
   useEffect(() => {
     if (tab === 'admin' && !isAdmin) setTab('clock');
   }, [tab, isAdmin]);
