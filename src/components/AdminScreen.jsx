@@ -127,6 +127,20 @@ export default function AdminScreen({ onSettings }) {
     }
   };
 
+  const handleToggleActive = async (userId, currentlyActive) => {
+    const action = currentlyActive ? 'Deactivate' : 'Reactivate';
+    if (!confirm(`${action} this user?`)) return;
+    try {
+      await updateUser(userId, { is_active: !currentlyActive });
+      loadData();
+    } catch (err) {
+      alert(`${action} failed: ` + err.message);
+    }
+  };
+
+  const activeUsers = users.filter(u => u.is_active !== false);
+  const inactiveUsers = users.filter(u => u.is_active === false);
+
   const inp = {
     width: '100%', padding: '10px 12px', background: c.surface2, border: `1px solid ${c.border}`,
     borderRadius: 10, color: c.text, fontSize: 14, boxSizing: 'border-box', marginBottom: 2, fontFamily: 'inherit',
@@ -214,22 +228,52 @@ export default function AdminScreen({ onSettings }) {
 
           {sub === 'users' && (
             <div>
-              {users.map((u) => (
+              {activeUsers.map((u) => (
                 <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 16, background: c.surface, borderRadius: 12, marginBottom: 6 }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 15, color: c.text }}>{u.name}</div>
                     <div style={{ fontSize: 12, color: c.text3, marginTop: 3 }}>{u.email} · {u.role}</div>
                   </div>
-                  <select
-                    value={u.role}
-                    onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                    style={{ background: c.surface2, color: c.text, border: `1px solid ${c.border}`, padding: '5px 10px', borderRadius: 8, fontSize: 12, fontFamily: 'inherit' }}
-                  >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <select
+                      value={u.role}
+                      onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                      style={{ background: c.surface2, color: c.text, border: `1px solid ${c.border}`, padding: '5px 10px', borderRadius: 8, fontSize: 12, fontFamily: 'inherit' }}
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <div
+                      onClick={() => handleToggleActive(u.id, true)}
+                      style={{ color: c.red, fontSize: 11, cursor: 'pointer', opacity: 0.6, padding: '5px 8px', borderRadius: 6, background: c.surface2, fontWeight: 500 }}
+                    >
+                      Deactivate
+                    </div>
+                  </div>
                 </div>
               ))}
+
+              {inactiveUsers.length > 0 && (
+                <>
+                  <div style={{ fontSize: 12, color: c.text3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 24, marginBottom: 10, paddingLeft: 4 }}>
+                    Deactivated
+                  </div>
+                  {inactiveUsers.map((u) => (
+                    <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 16, background: c.surface, borderRadius: 12, marginBottom: 6, opacity: 0.5 }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 15, color: c.text3 }}>{u.name}</div>
+                        <div style={{ fontSize: 12, color: c.text3, marginTop: 3 }}>{u.email} · {u.role}</div>
+                      </div>
+                      <div
+                        onClick={() => handleToggleActive(u.id, false)}
+                        style={{ color: c.green, fontSize: 11, cursor: 'pointer', padding: '5px 8px', borderRadius: 6, background: c.surface2, fontWeight: 500 }}
+                      >
+                        Reactivate
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </>
@@ -252,7 +296,7 @@ export default function AdminScreen({ onSettings }) {
                   style={inp}
                 >
                   <option value="">Select...</option>
-                  {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  {users.filter(u => u.is_active !== false).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
               </>
             )}
