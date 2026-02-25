@@ -85,6 +85,9 @@ export const getUsers = () =>
 export const updateUser = (id, data) =>
   request(`/api/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 
+export const syncUsers = () =>
+  request(`/api/admin/sync-users`, { method: "POST" });
+
 export const getOrg = () =>
   request('/api/admin/org');
 

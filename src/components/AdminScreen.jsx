@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../theme';
-import { getAllEntries, getUsers, updateUser, editEntry, deleteEntry, createManualEntry, exportCsv, downloadCsv } from '../api';
+import { getAllEntries, getUsers, updateUser, editEntry, deleteEntry, createManualEntry, exportCsv, downloadCsv, syncUsers } from '../api';
 import { PaletteIcon } from './Icons';
 
 const fmtTime = (ts) => new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -118,6 +118,19 @@ export default function AdminScreen({ user: currentUser, onSettings }) {
     }
   };
 
+  const [syncing, setSyncing] = useState(false);
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const result = await syncUsers();
+      alert(`Synced ${result.synced} users from GHL`);
+      loadData();
+    } catch (err) {
+      alert("Sync failed: " + err.message);
+    }
+    setSyncing(false);
+  };
+
   const handleRoleChange = async (userId, role) => {
     try {
       await updateUser(userId, { role });
@@ -158,6 +171,7 @@ export default function AdminScreen({ user: currentUser, onSettings }) {
           <div onClick={onSettings} style={{ width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: c.surface2 }}>
             <PaletteIcon size={18} color={c.text3} />
           </div>
+          <div onClick={handleSync} style={{ background: c.surface2, color: syncing ? c.text3 : c.text, padding: "7px 14px", borderRadius: 10, cursor: syncing ? "wait" : "pointer", fontSize: 13, fontWeight: 500, opacity: syncing ? 0.6 : 1 }}>{syncing ? "Syncing..." : "Sync"}</div>
           <div onClick={handleExport} style={{ background: c.surface2, color: c.text, padding: '7px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
             Export
           </div>
